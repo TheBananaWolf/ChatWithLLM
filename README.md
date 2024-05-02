@@ -9,5 +9,5 @@ A local web application allow you to chat with you file and the LLM
 ## Pre-requirement
 - Conda
 - Pip
-- Ollam
+- Ollama
 - Docker
