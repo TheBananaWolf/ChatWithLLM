@@ -9,6 +9,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain_community.llms import Ollama
 from htmlTemplates import css, bot_template, user_template
+from langchain import PromptTemplate
 
 
 def getPdfText(pdfDocs):
@@ -65,6 +66,8 @@ def getConversationChainForChat():
 def handleQuestionUsingSelf(question):
     response = st.session_state.self(question)
 
+
+
     st.session_state.chat_history = response['history']
 
     for i, message in enumerate(st.session_state.chat_history):
@@ -76,15 +79,25 @@ def handleQuestionUsingSelf(question):
 
 def handleQuestion(question):
     response = st.session_state.conversation(question)
+    prompt_template = """
+        You are an advisor. Based on the question: '{question}', please optimize this response: '{response}'. 
+        If the response is 'I don't know' or something similar, use your knowledge to answer the question.
+    """
+    prompt = PromptTemplate.from_template(template=prompt_template)
+    prompt_formatted_str: str = prompt.format(
+       question=question, response=response)
 
-    st.session_state.chat_history = response['chat_history']
+    llm = Ollama(model="llama3")
+    prediction = llm.invoke(prompt_formatted_str)
 
-    for i, message in enumerate(st.session_state.chat_history):
-        if i % 2 == 0:
-            st.chat_message("user").write(message.content)
+    st.session_state.chat_history.append({"type": "Human", "content": question})
+    st.session_state.chat_history.append({"type": "AI", "content": prediction})
+
+    for message in st.session_state.chat_history:
+        if message['type'] == "Human":
+            st.chat_message("Human").write(message['content'])
         else:
-            st.chat_message("assistant").write(message.content)
-
+            st.chat_message("Assistant").write(message['content'])
 
 def main():
     load_dotenv()
@@ -95,37 +108,42 @@ def main():
     st.header("Your Free Local GPTs")
     question = st.chat_input("Talk with me anything you want to know")
 
-    if "mode" not in st.session_state:
-        # false using self knowledge
-        st.session_state.mode = False
+    # if "mode" not in st.session_state:
+    #     # false using self knowledge
+    #     st.session_state.mode = False
+    #
+    #
+    # if str(question).lower() == "pdf":
+    #     st.session_state.mode = True
+    #     st.info("switch mode, please upload files.")
+    # if str(question).lower() == "not pdf":
+    #     st.session_state.mode = False
+    #     st.info("switch mode")
 
-
-    if str(question).lower() == "pdf":
-        st.session_state.mode = True
-        st.info("switch mode, please upload files.")
-    if str(question).lower() == "not pdf":
-        st.session_state.mode = False
-        st.info("switch mode")
-
-    if question != None and question != "" and st.session_state.mode == False:
-        if "self" not in st.session_state:
-            st.session_state.self = getConversationChainForChat()
-        handleQuestionUsingSelf(question)
-
-    if question != None and question != "" and st.session_state.mode == True:
+    # if question != None and question != "" and st.session_state.mode == False:
+    #     if "self" not in st.session_state:
+    #         st.session_state.self = getConversationChainForChat()
+    #     handleQuestionUsingSelf(question)
+    #
+    # if question != None and question != "" and st.session_state.mode == True:
+    #     if "conversation" not in st.session_state:
+    #         st.session_state.conversation = None
+    #     elif "vectorStore" not in st.session_state:
+    #         st.info("Please upload files.")
+    #     else:
+    if question != None and question != "":
         if "conversation" not in st.session_state:
             st.session_state.conversation = None
-        elif "vectorStore" not in st.session_state:
-            st.info("Please upload files.")
-        else:
-            handleQuestion(question)
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = []
+        handleQuestion(question)
 
     with st.sidebar:
         st.subheader("Your Files")
         pdfDocs = st.file_uploader("Upload your files", accept_multiple_files=True)
         if st.button("Upload"):
             with st.spinner("Process"):
-                st.session_state.mode == True
+                # st.session_state.mode == True
 
                 rawText = getPdfText(pdfDocs)
 
