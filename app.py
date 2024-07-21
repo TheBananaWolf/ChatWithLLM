@@ -132,8 +132,6 @@ def main():
     #         st.info("Please upload files.")
     #     else:
     if question != None and question != "":
-        if "conversation" not in st.session_state:
-            st.session_state.conversation = None
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
         handleQuestion(question)
